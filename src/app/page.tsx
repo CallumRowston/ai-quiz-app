@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Placeholder questions
 const QUESTIONS = [
@@ -28,21 +28,79 @@ export default function Home() {
   const [score, setScore] = useState(0);
   const [showScore, setShowScore] = useState(false);
 
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [replay, setReplay] = useState(0);
+
+  useEffect(() => {
+    async function fetchQuestions() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic: "general", numQuestions: 10 }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+          throw new Error(data.error || "Failed to load questions");
+        }
+        setQuestions(data.questions);
+      } catch (err: any) {
+        setError(err.message || "Failed to load questions");
+        setQuestions([]);
+      } finally {
+        setLoading(false);
+        setCurrent(0);
+        setSelected(null);
+        setScore(0);
+        setShowScore(false);
+      }
+    }
+    fetchQuestions();
+  }, [replay]);
+
   const handleOptionClick = (idx: number) => {
     setSelected(idx);
   };
 
   const handleNext = () => {
-    if (selected === QUESTIONS[current].answer) {
+    if (selected === questions[current].answer) {
       setScore((s) => s + 1);
     }
     setSelected(null);
-    if (current < QUESTIONS.length - 1) {
+    if (current < questions.length - 1) {
       setCurrent((c) => c + 1);
     } else {
       setShowScore(true);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 className="text-3xl font-bold mb-8">AI Quiz App</h1>
+        <div>Loading questions...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 className="text-3xl font-bold mb-8">AI Quiz App</h1>
+        <div className="text-red-600 mb-4">{error}</div>
+        <button
+          className="px-6 py-2 rounded bg-blue-600 text-white font-bold hover:bg-blue-700"
+          onClick={() => setReplay((r) => r + 1)}
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -50,16 +108,11 @@ export default function Home() {
       {showScore ? (
         <div className="flex flex-col items-center gap-4 text-xl font-semibold">
           <div>
-            You scored {score} out of {QUESTIONS.length}!
+            You scored {score} out of {questions.length}!
           </div>
           <button
             className="mt-4 px-6 py-2 rounded bg-blue-600 text-white font-bold hover:bg-blue-700"
-            onClick={() => {
-              setCurrent(0);
-              setSelected(null);
-              setScore(0);
-              setShowScore(false);
-            }}
+            onClick={() => setReplay((r) => r + 1)}
           >
             Replay Quiz
           </button>
@@ -67,13 +120,13 @@ export default function Home() {
       ) : (
         <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-lg shadow p-6">
           <div className="mb-6 text-lg font-medium">
-            Question {current + 1} of {QUESTIONS.length}
+            Question {current + 1} of {questions.length}
           </div>
           <div className="mb-4 text-base font-semibold">
-            {QUESTIONS[current].question}
+            {questions[current].question}
           </div>
           <div className="flex flex-col gap-3 mb-6">
-            {QUESTIONS[current].options.map((opt, idx) => (
+            {questions[current].options.map((opt: string, idx: number) => (
               <button
                 key={idx}
                 className={`px-4 py-2 rounded border text-left transition-colors ${
@@ -93,7 +146,7 @@ export default function Home() {
             onClick={handleNext}
             disabled={selected === null}
           >
-            {current === QUESTIONS.length - 1 ? "Finish" : "Next"}
+            {current === questions.length - 1 ? "Finish" : "Next"}
           </button>
         </div>
       )}
