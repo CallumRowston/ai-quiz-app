@@ -1,26 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-// Placeholder questions
-const QUESTIONS = [
-  {
-    question: "What is the capital of France?",
-    options: ["Berlin", "London", "Paris", "Madrid"],
-    answer: 2,
-  },
-  {
-    question: "Which planet is known as the Red Planet?",
-    options: ["Earth", "Mars", "Jupiter", "Saturn"],
-    answer: 1,
-  },
-  {
-    question: "Who wrote 'To Kill a Mockingbird'?",
-    options: ["Harper Lee", "Mark Twain", "J.K. Rowling", "Jane Austen"],
-    answer: 0,
-  },
-  // ...add 7 more placeholder questions
-];
+import { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
 
 export default function Home() {
   const [current, setCurrent] = useState(0);
@@ -32,6 +13,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState(0);
+
+  const questionRef = useRef<HTMLDivElement>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -67,14 +51,32 @@ export default function Home() {
   };
 
   const handleNext = () => {
-    if (selected === questions[current].answer) {
-      setScore((s) => s + 1);
-    }
-    setSelected(null);
-    if (current < questions.length - 1) {
-      setCurrent((c) => c + 1);
-    } else {
-      setShowScore(true);
+    if (questionRef.current) {
+      setIsAnimating(true);
+      gsap.to(questionRef.current, {
+        opacity: 0,
+        duration: 0.4,
+        onComplete: () => {
+          if (selected === questions[current].answer) {
+            setScore((s) => s + 1);
+          }
+          setSelected(null);
+          if (current < questions.length - 1) {
+            setCurrent((c) => c + 1);
+          } else {
+            setShowScore(true);
+          }
+          gsap.fromTo(
+            questionRef.current,
+            { opacity: 0 },
+            {
+              opacity: 1,
+              duration: 0.4,
+              onComplete: () => setIsAnimating(false),
+            }
+          );
+        },
+      });
     }
   };
 
@@ -118,7 +120,11 @@ export default function Home() {
           </button>
         </div>
       ) : (
-        <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+        <div
+          ref={questionRef}
+          className="w-full max-w-md bg-white dark:bg-gray-900 rounded-lg shadow p-6"
+          style={{ opacity: 1, transition: "opacity 0.4s" }}
+        >
           <div className="mb-6 text-lg font-medium">
             Question {current + 1} of {questions.length}
           </div>
@@ -135,7 +141,7 @@ export default function Home() {
                     : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900"
                 }`}
                 onClick={() => handleOptionClick(idx)}
-                disabled={selected !== null}
+                disabled={false}
               >
                 {opt}
               </button>
@@ -144,7 +150,7 @@ export default function Home() {
           <button
             className="w-full py-2 rounded bg-blue-600 text-white font-bold disabled:bg-gray-400"
             onClick={handleNext}
-            disabled={selected === null}
+            disabled={selected === null || isAnimating}
           >
             {current === questions.length - 1 ? "Finish" : "Next"}
           </button>
