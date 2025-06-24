@@ -14,7 +14,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [replay, setReplay] = useState(0);
 
-  const questionRef = useRef<HTMLDivElement>(null);
+  const questionBoxRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
@@ -51,40 +51,43 @@ export default function Home() {
   };
 
   const handleNext = () => {
-    if (questionRef.current) {
-      setIsAnimating(true);
-      gsap.to(questionRef.current, {
-        opacity: 0,
-        duration: 0.4,
-        onComplete: () => {
-          if (selected === questions[current].answer) {
-            setScore((s) => s + 1);
-          }
-          setSelected(null);
-          if (current < questions.length - 1) {
-            setCurrent((c) => c + 1);
-          } else {
-            setShowScore(true);
-          }
-          gsap.fromTo(
-            questionRef.current,
-            { opacity: 0 },
-            {
-              opacity: 1,
-              duration: 0.4,
-              onComplete: () => setIsAnimating(false),
-            }
-          );
-        },
-      });
-    }
+    if (isAnimating) return;
+    setIsAnimating(true);
+
+    // Animate to 90deg (hide old content)
+    gsap.to(questionBoxRef.current, {
+      rotateY: 90,
+      duration: 0.4,
+      ease: "power2.in",
+      onComplete: () => {
+        // Update question at halfway point
+        if (selected === questions[current].answer) setScore((s) => s + 1);
+        setSelected(null);
+        if (current < questions.length - 1) {
+          setCurrent((c) => c + 1);
+        } else {
+          setShowScore(true);
+        }
+        // Instantly set to -90deg (hidden, new content)
+        gsap.set(questionBoxRef.current, { rotateY: -90 });
+        // Animate to 0deg (show new content)
+        gsap.to(questionBoxRef.current, {
+          rotateY: 0,
+          duration: 0.4,
+          ease: "power2.out",
+          onComplete: () => setIsAnimating(false),
+        });
+      },
+    });
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <h1 className="text-3xl font-bold mb-8">AI Quiz App</h1>
-        <div>Loading questions...</div>
+        <div className="flex items-center justify-center h-24">
+          <span className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
@@ -104,10 +107,10 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-3xl font-bold mb-8">AI Quiz App</h1>
-      {showScore ? (
+  if (showScore) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 className="text-3xl font-bold mb-8">AI Quiz App</h1>
         <div className="flex flex-col items-center gap-4 text-xl font-semibold">
           <div>
             You scored {score} out of {questions.length}!
@@ -119,43 +122,47 @@ export default function Home() {
             Replay Quiz
           </button>
         </div>
-      ) : (
-        <div
-          ref={questionRef}
-          className="w-full max-w-md bg-white dark:bg-gray-900 rounded-lg shadow p-6"
-          style={{ opacity: 1, transition: "opacity 0.4s" }}
-        >
-          <div className="mb-6 text-lg font-medium">
-            Question {current + 1} of {questions.length}
-          </div>
-          <div className="mb-4 text-base font-semibold">
-            {questions[current].question}
-          </div>
-          <div className="flex flex-col gap-3 mb-6">
-            {questions[current].options.map((opt: string, idx: number) => (
-              <button
-                key={idx}
-                className={`px-4 py-2 rounded border text-left transition-colors ${
-                  selected === idx
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900"
-                }`}
-                onClick={() => handleOptionClick(idx)}
-                disabled={false}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-          <button
-            className="w-full py-2 rounded bg-blue-600 text-white font-bold disabled:bg-gray-400"
-            onClick={handleNext}
-            disabled={selected === null || isAnimating}
-          >
-            {current === questions.length - 1 ? "Finish" : "Next"}
-          </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cube-container flex justify-center items-center min-h-screen p-4">
+      <div
+        ref={questionBoxRef}
+        className="cube-box w-full max-w-md bg-white dark:bg-gray-900 rounded-lg shadow p-6"
+        style={{ transform: "rotateY(0deg)" }}
+      >
+        <div className="mb-6 text-lg font-medium">
+          Question {current + 1} of {questions.length}
         </div>
-      )}
+        <div className="mb-4 text-base font-semibold">
+          {questions[current].question}
+        </div>
+        <div className="flex flex-col gap-3 mb-6">
+          {questions[current].options.map((opt: string, idx: number) => (
+            <button
+              key={idx}
+              className={`px-4 py-2 rounded border text-left transition-colors ${
+                selected === idx
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+              }`}
+              onClick={() => handleOptionClick(idx)}
+              disabled={false}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+        <button
+          className="w-full py-2 rounded bg-blue-600 text-white font-bold disabled:bg-gray-400"
+          onClick={handleNext}
+          disabled={selected === null || isAnimating}
+        >
+          {current === questions.length - 1 ? "Finish" : "Next"}
+        </button>
+      </div>
     </div>
   );
 }
